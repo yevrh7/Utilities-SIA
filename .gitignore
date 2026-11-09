@@ -1,0 +1,23 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# SQLite databases & runtime storage
+*.sqlite3
+*.db
+*.log
+
+# Sensitive credentials & environment files
+.env
+config.json
+
+# IDE and Editor configurations
+.vscode/
+.idea/
+*.swp
