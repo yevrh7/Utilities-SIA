@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from app.ui.messaging_view import MessagingFrame
-
+from app.ui.url_shortener_view import UrlShortenerFrame
 
 class DashboardWindow(tk.Tk):
     def __init__(self, user_id: int, username: str):
@@ -64,9 +64,7 @@ class DashboardWindow(tk.Tk):
         # Initialize all 3 utility views
         self.views = {
             "SMS and Email Sender": MessagingFrame(self.content_area, self.user_id),
-            "URL Shortener": self._create_placeholder_frame(
-                "URL Shortener", "Ready for URL shortening module integration."
-            ),
+            "URL Shortener": UrlShortenerFrame(self.content_area, self.user_id),
             "Fake Data Generator": self._create_placeholder_frame(
                 "Fake Data Generator", "Ready for 10-field Faker module integration."
             ),
