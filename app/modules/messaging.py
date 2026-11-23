@@ -3,6 +3,7 @@ import smtplib
 from email.message import EmailMessage
 from typing import List, Tuple
 import requests
+from dotenv import load_dotenv
 from app.database.connection import get_connection
 
 # Load credentials from environment variables (or replace with your test credentials)
