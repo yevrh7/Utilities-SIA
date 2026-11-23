@@ -25,7 +25,7 @@ class DashboardWindow(tk.Tk):
         style.configure("TButton", font=("Segoe UI", 10), padding=6)
 
     def _build_ui(self):
-        # --- Top Navigation & Utility Selector Bar ---
+        # --- Top Navigation Bar ---
         top_bar = ttk.Frame(self, padding=(20, 15))
         top_bar.pack(fill="x")
 
@@ -35,25 +35,23 @@ class DashboardWindow(tk.Tk):
             style="Header.TLabel",
         ).pack(side="left")
 
-        # Utility Selector ComboBox (Right side of header)
-        selector_frame = ttk.Frame(top_bar)
-        selector_frame.pack(side="right")
+        # Utility Selector ComboBox (Created here, but NOT packed yet so it stays hidden initially)
+        self.selector_frame = ttk.Frame(top_bar)
 
-        ttk.Label(selector_frame, text="Select Utility:").pack(side="left", padx=(0, 8))
+        ttk.Label(self.selector_frame, text="Switch Utility:").pack(side="left", padx=(0, 8))
 
         self.utility_options = [
-            "3B.2 - SMS and Email Sender",
-            "3B.1 - URL Shortener",
-            "3B.3 - Fake Data Generator",
+            "SMS and Email Sender",
+            "URL Shortener",
+            "Fake Data Generator",
         ]
         self.utility_combo = ttk.Combobox(
-            selector_frame,
+            self.selector_frame,
             values=self.utility_options,
             state="readonly",
-            width=28,
+            width=25,
             font=("Segoe UI", 10),
         )
-        self.utility_combo.set("-- Choose a Utility --")
         self.utility_combo.pack(side="left")
         self.utility_combo.bind("<<ComboboxSelected>>", self._on_utility_selected)
 
@@ -63,21 +61,24 @@ class DashboardWindow(tk.Tk):
         self.content_area = ttk.Frame(self, padding=20)
         self.content_area.pack(fill="both", expand=True)
 
-        # Initialize all 3 utility views (passing user_id for SQLite foreign keys)
+        # Initialize all 3 utility views
         self.views = {
-            "3B.2 - SMS and Email Sender": MessagingFrame(self.content_area, self.user_id),
-            "3B.1 - URL Shortener": self._create_placeholder_frame(
-                "3B.1 URL Shortener", "Ready for URL shortening module integration."
+            "SMS and Email Sender": MessagingFrame(self.content_area, self.user_id),
+            "URL Shortener": self._create_placeholder_frame(
+                "URL Shortener", "Ready for URL shortening module integration."
             ),
-            "3B.3 - Fake Data Generator": self._create_placeholder_frame(
-                "3B.3 Fake Data Generator", "Ready for 10-field Faker module integration."
+            "Fake Data Generator": self._create_placeholder_frame(
+                "Fake Data Generator", "Ready for 10-field Faker module integration."
             ),
         }
 
-        # Show initial welcome menu with quick-launch buttons
+        # Show initial welcome menu
         self._show_welcome_menu()
 
     def _show_welcome_menu(self):
+        # Ensure top-right dropdown is hidden on the welcome screen
+        self.selector_frame.pack_forget()
+
         self.welcome_frame = ttk.Frame(self.content_area)
         self.welcome_frame.pack(expand=True)
 
@@ -89,14 +90,14 @@ class DashboardWindow(tk.Tk):
 
         ttk.Label(
             self.welcome_frame,
-            text="Select an option below or use the dropdown menu in the top-right corner.",
+            text="Select an option below to launch a tool.",
         ).pack(pady=(0, 25))
 
         for option in self.utility_options:
             btn = ttk.Button(
                 self.welcome_frame,
                 text=option,
-                width=35,
+                width=32,
                 command=lambda opt=option: self._select_utility(opt),
             )
             btn.pack(pady=6)
@@ -119,6 +120,10 @@ class DashboardWindow(tk.Tk):
         # Hide welcome screen if visible
         if hasattr(self, "welcome_frame") and self.welcome_frame.winfo_exists():
             self.welcome_frame.pack_forget()
+
+        # Reveal the top-right dropdown now that the user is inside a tool
+        if not self.selector_frame.winfo_ismapped():
+            self.selector_frame.pack(side="right")
 
         # Hide all utility frames
         for frame in self.views.values():
