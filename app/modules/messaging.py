@@ -1,17 +1,18 @@
 import os
 import smtplib
 from email.message import EmailMessage
-from typing import List, Tuple
+from typing import Tuple
 import requests
 from dotenv import load_dotenv
 from app.database.connection import get_connection
 
-# Load credentials from environment variables (or replace with your test credentials)
 load_dotenv()
 
 SMTP_EMAIL = os.getenv("SMTP_EMAIL")
 SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD")
-SMS_API_KEY = os.getenv("SMS_API_KEY")
+TEXTBEE_API_KEY = os.getenv("TEXTBEE_API_KEY")
+TEXTBEE_DEVICE_ID = os.getenv("TEXTBEE_DEVICE_ID")
+
 
 def log_message_to_db(user_id: int, recipient: str, subject: str, status: str) -> None:
     """Saves Email/SMS delivery history into the existing email_logs table."""
@@ -46,6 +47,9 @@ def get_user_message_logs(user_id: int) -> list:
 
 def send_email(user_id: int, recipient: str, subject: str, body: str) -> Tuple[bool, str]:
     """Sends an email via Gmail SMTP and logs the result to SQLite."""
+    if not SMTP_EMAIL or not SMTP_APP_PASSWORD:
+        return False, "Missing SMTP credentials. Please check your .env file."
+
     recipient = recipient.strip()
     subject = subject.strip() or "(No Subject)"
 
@@ -72,25 +76,30 @@ def send_email(user_id: int, recipient: str, subject: str, body: str) -> Tuple[b
 
 
 def send_sms(user_id: int, phone_number: str, message: str) -> Tuple[bool, str]:
-    """Sends an SMS via Semaphore REST API and logs the result to SQLite."""
-    phone_number = phone_number.strip()
+    """Sends an SMS via TextBee Android Gateway API and logs the result to SQLite."""
+    if not TEXTBEE_API_KEY or not TEXTBEE_DEVICE_ID:
+        return False, "Missing TextBee credentials. Please check your .env file."
 
-    if len(phone_number) < 10:
-        return False, "Please enter a valid mobile number (e.g., 09171234567)."
+    clean_num = phone_number.strip().replace(" ", "").replace("-", "")
+    if clean_num.startswith("09") and len(clean_num) == 11:
+        clean_num = "+63" + clean_num[1:]
+    elif not clean_num.startswith("+"):
+        return False, "Enter a valid 11-digit PH number (e.g., 09171234567) or +63 format."
 
     try:
-        url = "https://api.semaphore.co/api/v4/messages"
+        url = f"https://api.textbee.dev/api/v1/gateway/devices/{TEXTBEE_DEVICE_ID}/send-sms"
+        headers = {"x-api-key": TEXTBEE_API_KEY}
         payload = {
-            "apikey": SMS_API_KEY,
-            "number": phone_number,
+            "recipients": [clean_num],
             "message": message,
         }
-        response = requests.post(url, data=payload, timeout=15)
+
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
         response.raise_for_status()
 
-        log_message_to_db(user_id, phone_number, "[SMS Message]", "SENT (SMS)")
-        return True, "SMS sent and logged successfully!"
+        log_message_to_db(user_id, clean_num, "[SMS Message]", "SENT (SMS)")
+        return True, "SMS queued to your phone via TextBee and logged!"
 
     except Exception as e:
-        log_message_to_db(user_id, phone_number, "[SMS Message]", "FAILED (SMS)")
+        log_message_to_db(user_id, clean_num, "[SMS Message]", "FAILED (SMS)")
         return False, f"SMS failed: {str(e)}"
