@@ -10,11 +10,6 @@ class UrlShortenerFrame(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
-        ttk.Label(
-            self,
-            text="3B.1 - URL Shortener",
-            style="Header.TLabel",
-        ).pack(anchor="w", pady=(0, 15))
 
         # Input section
         input_frame = ttk.Frame(self)
