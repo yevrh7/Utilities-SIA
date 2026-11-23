@@ -6,10 +6,11 @@ import requests
 from app.database.connection import get_connection
 
 # Load credentials from environment variables (or replace with your test credentials)
-SMTP_EMAIL = os.getenv("SMTP_EMAIL", "your_email@gmail.com")
-SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD", "your_16_char_app_password")
-SMS_API_KEY = os.getenv("SMS_API_KEY", "your_semaphore_or_gateway_api_key")
+load_dotenv()
 
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_APP_PASSWORD = os.getenv("SMTP_APP_PASSWORD")
+SMS_API_KEY = os.getenv("SMS_API_KEY")
 
 def log_message_to_db(user_id: int, recipient: str, subject: str, status: str) -> None:
     """Saves Email/SMS delivery history into the existing email_logs table."""
