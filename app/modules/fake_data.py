@@ -5,25 +5,35 @@ from app.database.connection import get_connection
 
 fake = Faker()
 
-
-def generate_mock_profile() -> Dict[str, str]:
-    """Generates a 10-field realistic fake user profile matching mock_data_records."""
-    return {
-        "full_name": fake.name(),
-        "email": fake.email(),
-        "phone_number": fake.phone_number(),
-        "street_address": fake.street_address(),
-        "city": fake.city(),
-        "country": fake.country(),
-        "birthdate": str(fake.date_of_birth(minimum_age=18, maximum_age=75)),
-        "job_title": fake.job(),
-        "company": fake.company(),
-        "national_id": fake.ssn(),
-    }
+FIELD_GENERATORS = {
+    "full_name": lambda: fake.name(),
+    "email": lambda: fake.email(),
+    "phone_number": lambda: fake.phone_number(),
+    "street_address": lambda: fake.street_address(),
+    "city": lambda: fake.city(),
+    "country": lambda: fake.country(),
+    "birthdate": lambda: str(fake.date_of_birth(minimum_age=18, maximum_age=75)),
+    "job_title": lambda: fake.job(),
+    "company": lambda: fake.company(),
+    "national_id": lambda: fake.ssn(),
+}
 
 
-def create_and_save_fake_data(user_id: int, count: int = 10) -> Tuple[bool, List[Dict] | str]:
-    """Generates `count` mock records (min 10) under a shared batch_id and saves to SQLite."""
+def generate_mock_profile(selected_fields: List[str]) -> Dict[str, str]:
+    """Generates only the selected fields; unselected fields default to '' for SQLite NOT NULL compliance."""
+    profile: Dict[str, str] = {}
+    for field, generator in FIELD_GENERATORS.items():
+        profile[field] = generator() if field in selected_fields else ""
+    return profile
+
+
+def create_and_save_fake_data(
+    user_id: int, selected_fields: List[str], count: int = 10
+) -> Tuple[bool, List[Dict] | str]:
+    """Generates `count` records with only `selected_fields` populated, saves to SQLite, and returns the current batch."""
+    if not selected_fields:
+        return False, "Select at least one data field to generate."
+
     if count < 10 or count > 100:
         return False, "Please enter a quantity between 10 and 100."
 
@@ -34,7 +44,7 @@ def create_and_save_fake_data(user_id: int, count: int = 10) -> Tuple[bool, List
         with get_connection() as conn:
             cursor = conn.cursor()
             for _ in range(count):
-                profile = generate_mock_profile()
+                profile = generate_mock_profile(selected_fields)
                 cursor.execute(
                     """
                     INSERT INTO mock_data_records (
@@ -69,7 +79,7 @@ def create_and_save_fake_data(user_id: int, count: int = 10) -> Tuple[bool, List
 
 
 def get_user_mock_data(user_id: int) -> List[Dict]:
-    """Fetches saved fake data records for the logged-in user."""
+    """Fetches all saved fake data records for the History tab."""
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
