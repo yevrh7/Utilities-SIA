@@ -2,6 +2,7 @@ import json
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app.modules.fake_data import create_and_save_fake_data, get_user_mock_data
+from app.ui.log_detail_modal import LogDetailModal
 
 
 FIELD_META = {
@@ -27,6 +28,11 @@ class FakeDataFrame(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        ttk.Label(
+            self,
+            text="3B.3 - Fake Data Generator",
+            style="Header.TLabel",
+        ).pack(anchor="w", pady=(0, 10))
 
         self.notebook = ttk.Notebook(self)
         self.notebook.pack(fill="both", expand=True)
@@ -44,11 +50,9 @@ class FakeDataFrame(ttk.Frame):
     # TAB 1: GENERATOR (DYNAMIC CHECKBOXES)
     # ==========================================
     def _build_generator_tab(self):
-        # Field Selection Group
         fields_box = ttk.LabelFrame(self.gen_tab, text="Select Fields to Generate", padding=10)
         fields_box.pack(fill="x", pady=(0, 10))
 
-        # Quick toggle buttons
         toggle_row = ttk.Frame(fields_box)
         toggle_row.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 8))
         ttk.Button(toggle_row, text="Select All", command=lambda: self._set_all_fields(True)).pack(
@@ -58,7 +62,6 @@ class FakeDataFrame(ttk.Frame):
             side="left"
         )
 
-        # 2 rows x 5 columns grid of checkboxes
         for idx, (key, (label, _)) in enumerate(FIELD_META.items()):
             var = tk.BooleanVar(value=True)
             self.field_vars[key] = var
@@ -68,7 +71,6 @@ class FakeDataFrame(ttk.Frame):
                 row=row, column=col, sticky="w", padx=(0, 16), pady=3
             )
 
-        # Action & Count Row
         action_row = ttk.Frame(self.gen_tab)
         action_row.pack(fill="x", pady=(0, 10))
 
@@ -87,11 +89,10 @@ class FakeDataFrame(ttk.Frame):
         ).pack(side="right")
 
         self.batch_status_label = ttk.Label(
-            self.gen_tab, text="Select fields above and click 'Generate & Save'."
+            self.gen_tab, text="Select fields above and click 'Generate & Save' (Double-click any row for details)."
         )
         self.batch_status_label.pack(anchor="w", pady=(0, 6))
 
-        # Results Treeview (shows ONLY the current batch & selected columns)
         gen_table_container = ttk.Frame(self.gen_tab)
         gen_table_container.pack(fill="both", expand=True)
 
@@ -106,6 +107,19 @@ class FakeDataFrame(ttk.Frame):
 
         gen_table_container.rowconfigure(0, weight=1)
         gen_table_container.columnconfigure(0, weight=1)
+
+        self.gen_tree.bind("<Double-1>", self._on_gen_row_click)
+
+    def _on_gen_row_click(self, event):
+        selected = self.gen_tree.selection()
+        if not selected or not self.active_generated_cols:
+            return
+        values = self.gen_tree.item(selected[0], "values")
+        details = {
+            FIELD_META[col][0]: val
+            for col, val in zip(self.active_generated_cols, values)
+        }
+        LogDetailModal(self, "Generated Record Details", details)
 
     def _set_all_fields(self, state: bool):
         for var in self.field_vars.values():
@@ -128,7 +142,6 @@ class FakeDataFrame(ttk.Frame):
             messagebox.showerror("Error", str(result))
             return
 
-        # Reconfigure columns dynamically to show ONLY checked fields for this batch
         self.active_generated_cols = selected_fields
         self.gen_tree.delete(*self.gen_tree.get_children())
         self.gen_tree["columns"] = selected_fields
@@ -143,7 +156,7 @@ class FakeDataFrame(ttk.Frame):
 
         batch_id = result[0]["batch_id"]
         self.batch_status_label.config(
-            text=f"Generated {len(result)} records (Batch ID: {batch_id}) — Saved to database."
+            text=f"Generated {len(result)} records (Batch ID: {batch_id}) — Double-click any row to inspect."
         )
         self._refresh_history_table()
 
@@ -166,7 +179,9 @@ class FakeDataFrame(ttk.Frame):
         top_bar = ttk.Frame(self.history_tab)
         top_bar.pack(fill="x", pady=(0, 8))
 
-        ttk.Label(top_bar, text="All Stored Mock Data Batches:").pack(side="left")
+        ttk.Label(top_bar, text="All Stored Mock Data Batches (Double-click any row to view):").pack(
+            side="left"
+        )
 
         ttk.Button(
             top_bar, text="Copy Selected Row (JSON)", command=self._copy_history_json
@@ -203,7 +218,18 @@ class FakeDataFrame(ttk.Frame):
         hist_container.rowconfigure(0, weight=1)
         hist_container.columnconfigure(0, weight=1)
 
+        self.hist_tree.bind("<Double-1>", self._on_hist_row_click)
+
         self._refresh_history_table()
+
+    def _on_hist_row_click(self, event):
+        selected = self.hist_tree.selection()
+        if not selected:
+            return
+        values = self.hist_tree.item(selected[0], "values")
+        labels = ["Batch ID", *(meta[0] for meta in FIELD_META.values()), "Created At"]
+        details = {label: val for label, val in zip(labels, values) if val != "—"}
+        LogDetailModal(self, "Stored Mock Record Details", details)
 
     def _refresh_history_table(self):
         for row in self.hist_tree.get_children():
@@ -237,7 +263,6 @@ class FakeDataFrame(ttk.Frame):
 
         values = self.hist_tree.item(selected[0], "values")
         keys = ("batch_id", *FIELD_META.keys(), "created_at")
-        # Exclude ungenerated placeholder fields ('—') from copied JSON
         record_dict = {k: v for k, v in zip(keys, values) if v != "—"}
         self.clipboard_clear()
         self.clipboard_append(json.dumps(record_dict, indent=2))

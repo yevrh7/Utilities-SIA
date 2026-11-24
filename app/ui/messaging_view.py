@@ -2,12 +2,14 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app.modules.messaging import send_email, send_sms, get_user_message_logs
+from app.ui.log_detail_modal import LogDetailModal
 
 
 class MessagingFrame(ttk.Frame):
     def __init__(self, parent, user_id: int):
         super().__init__(parent)
         self.user_id = user_id
+        self.logs_cache: dict[str, dict] = {}
         self._build_ui()
         self._refresh_logs()
 
@@ -60,7 +62,9 @@ class MessagingFrame(ttk.Frame):
         self.send_btn.pack(fill="x")
 
         # --- RIGHT PANEL: Delivery History from SQLite ---
-        logs_frame = ttk.LabelFrame(self, text="Recent Delivery Logs", padding=15)
+        logs_frame = ttk.LabelFrame(
+            self, text="Recent Delivery Logs (Double-click row to inspect)", padding=15
+        )
         logs_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
         columns = ("recipient", "subject", "status", "sent_at")
@@ -76,9 +80,33 @@ class MessagingFrame(ttk.Frame):
         self.tree.column("sent_at", width=110)
         self.tree.pack(fill="both", expand=True)
 
+        self.tree.bind("<Double-1>", self._on_log_click)
+
         ttk.Button(
             logs_frame, text="Refresh Logs", command=self._refresh_logs
         ).pack(fill="x", pady=(10, 0))
+
+    def _on_log_click(self, event):
+        selected = self.tree.selection()
+        if not selected:
+            return
+
+        item_id = selected[0]
+        log = self.logs_cache.get(item_id)
+        if not log:
+            return
+
+        body = log.get("body") or "(No message body recorded for older log)"
+
+        details = {
+            "Recipient": log.get("recipient", ""),
+            "Subject / Type": log.get("subject", ""),
+            "Status": log.get("status", ""),
+            "Sent At": str(log.get("sent_at", "")),
+            "Message Body": body,
+        }
+
+        LogDetailModal(self, "Message Delivery Log Details", details)
 
     def _on_mode_change(self, event):
         mode = self.mode_combo.get()
@@ -128,13 +156,15 @@ class MessagingFrame(ttk.Frame):
             messagebox.showerror("Delivery Error", msg)
 
     def _refresh_logs(self):
+        self.logs_cache.clear()
         for row in self.tree.get_children():
             self.tree.delete(row)
 
         logs = get_user_message_logs(self.user_id)
         for log in logs:
-            self.tree.insert(
+            item_id = self.tree.insert(
                 "",
                 tk.END,
                 values=(log["recipient"], log["subject"], log["status"], log["sent_at"]),
             )
+            self.logs_cache[item_id] = dict(log)
