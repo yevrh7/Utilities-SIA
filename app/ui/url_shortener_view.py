@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from app.modules.url_shortener import shorten_url, get_user_urls
+from app.ui.log_detail_modal import LogDetailModal
 
 
 class UrlShortenerFrame(ttk.Frame):
@@ -10,6 +11,11 @@ class UrlShortenerFrame(ttk.Frame):
         self._build_ui()
 
     def _build_ui(self):
+        ttk.Label(
+            self,
+            text="3B.1 - URL Shortener",
+            style="Header.TLabel",
+        ).pack(anchor="w", pady=(0, 15))
 
         # Input section
         input_frame = ttk.Frame(self)
@@ -47,7 +53,9 @@ class UrlShortenerFrame(ttk.Frame):
         ).pack(side="left")
 
         # History table
-        ttk.Label(self, text="Your Shortened URLs:").pack(anchor="w", pady=(0, 5))
+        ttk.Label(self, text="Your Shortened URLs (Double-click a row to view full details):").pack(
+            anchor="w", pady=(0, 5)
+        )
 
         columns = ("original", "short", "date")
         self.url_tree = ttk.Treeview(self, columns=columns, show="headings", height=12)
@@ -60,7 +68,24 @@ class UrlShortenerFrame(ttk.Frame):
         self.url_tree.column("date", width=160)
         self.url_tree.pack(fill="both", expand=True)
 
+        self.url_tree.bind("<Double-1>", self._on_url_log_click)
+
         self._refresh_url_history()
+
+    def _on_url_log_click(self, event):
+        selected = self.url_tree.selection()
+        if not selected:
+            return
+        orig, short, created = self.url_tree.item(selected[0], "values")
+        LogDetailModal(
+            self,
+            "URL Shortener Log Details",
+            {
+                "Original URL": orig,
+                "Shortened URL": short,
+                "Created At": created,
+            },
+        )
 
     def _handle_shorten(self):
         long_url = self.url_entry.get()

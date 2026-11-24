@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from app.ui.messaging_view import MessagingFrame
 from app.ui.url_shortener_view import UrlShortenerFrame
+from app.ui.fake_data_view import FakeDataFrame
 
 class DashboardWindow(tk.Tk):
     def __init__(self, user_id: int, username: str):
@@ -65,9 +66,7 @@ class DashboardWindow(tk.Tk):
         self.views = {
             "SMS and Email Sender": MessagingFrame(self.content_area, self.user_id),
             "URL Shortener": UrlShortenerFrame(self.content_area, self.user_id),
-            "Fake Data Generator": self._create_placeholder_frame(
-                "Fake Data Generator", "Ready for 10-field Faker module integration."
-            ),
+            "Fake Data Generator": FakeDataFrame(self.content_area, self.user_id),
         }
 
         # Show initial welcome menu

@@ -14,27 +14,40 @@ TEXTBEE_API_KEY = os.getenv("TEXTBEE_API_KEY")
 TEXTBEE_DEVICE_ID = os.getenv("TEXTBEE_DEVICE_ID")
 
 
-def log_message_to_db(user_id: int, recipient: str, subject: str, status: str) -> None:
-    """Saves Email/SMS delivery history into the existing email_logs table."""
+def _ensure_body_column() -> None:
+    """Safely adds the 'body' column to existing email_logs tables without breaking old .db files."""
+    with get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(email_logs)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "body" not in columns:
+            cursor.execute("ALTER TABLE email_logs ADD COLUMN body TEXT DEFAULT ''")
+            conn.commit()
+
+
+def log_message_to_db(user_id: int, recipient: str, subject: str, body: str, status: str) -> None:
+    """Saves Email/SMS delivery history (including message body) into email_logs."""
+    _ensure_body_column()
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO email_logs (user_id, recipient, subject, status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO email_logs (user_id, recipient, subject, body, status)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (user_id, recipient, subject, status),
+            (user_id, recipient, subject, body, status),
         )
         conn.commit()
 
 
 def get_user_message_logs(user_id: int) -> list:
     """Fetches recent Email/SMS logs for the logged-in user."""
+    _ensure_body_column()
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT recipient, subject, status, sent_at
+            SELECT recipient, subject, body, status, sent_at
             FROM email_logs
             WHERE user_id = ?
             ORDER BY sent_at DESC
@@ -67,11 +80,11 @@ def send_email(user_id: int, recipient: str, subject: str, body: str) -> Tuple[b
             smtp.login(SMTP_EMAIL, SMTP_APP_PASSWORD)
             smtp.send_message(msg)
 
-        log_message_to_db(user_id, recipient, subject, "SENT (Email)")
+        log_message_to_db(user_id, recipient, subject, body, "SENT (Email)")
         return True, "Email sent and logged successfully!"
 
     except Exception as e:
-        log_message_to_db(user_id, recipient, subject, "FAILED (Email)")
+        log_message_to_db(user_id, recipient, subject, body, "FAILED (Email)")
         return False, f"Email failed: {str(e)}"
 
 
@@ -97,9 +110,9 @@ def send_sms(user_id: int, phone_number: str, message: str) -> Tuple[bool, str]:
         response = requests.post(url, json=payload, headers=headers, timeout=15)
         response.raise_for_status()
 
-        log_message_to_db(user_id, clean_num, "[SMS Message]", "SENT (SMS)")
+        log_message_to_db(user_id, clean_num, "[SMS Message]", message, "SENT (SMS)")
         return True, "SMS queued to your phone via TextBee and logged!"
 
     except Exception as e:
-        log_message_to_db(user_id, clean_num, "[SMS Message]", "FAILED (SMS)")
+        log_message_to_db(user_id, clean_num, "[SMS Message]", message, "FAILED (SMS)")
         return False, f"SMS failed: {str(e)}"
